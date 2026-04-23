@@ -67,7 +67,7 @@
     <div id="toast-success" class="fixed top-20 left-1/2 -translate-x-1/2 z-[1000] animate-bounce hidden-safely">
         <div class="bg-[#107c41] text-white px-6 py-2 rounded-full shadow-[0_0_20px_rgba(16,124,65,0.6)] flex items-center gap-2 border border-white/20">
             <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-            <span class="text-[10px] font-black uppercase tracking-widest">Saved to Cloud & PC</span>
+            <span class="text-[10px] font-black uppercase tracking-widest">Saved Successfully</span>
         </div>
     </div>
 
@@ -90,7 +90,7 @@
             </div>
             <div>
                 <h1 class="font-black text-sm md:text-lg italic leading-none tracking-tighter">CYBER<span class="text-[#107c41] drop-shadow-[0_0_8px_rgba(16,124,65,0.8)]">PRO</span></h1>
-                <p class="text-[7px] md:text-[8px] text-[#107c41] font-bold uppercase tracking-[0.2em] md:tracking-[0.4em]">v2.5 AUTO-EXPORT</p>
+                <p class="text-[7px] md:text-[8px] text-[#107c41] font-bold uppercase tracking-[0.2em] md:tracking-[0.4em]">v2.6 WEB-DEPLOYED</p>
             </div>
         </div>
         
@@ -208,7 +208,7 @@
             <div class="p-6 md:p-10 border-b-[6px] md:border-b-[8px] border-black flex flex-col sm:flex-row justify-between items-start gap-6 bg-slate-50 relative">
                 <div class="relative z-10">
                     <h3 class="text-3xl md:text-5xl font-black text-black tracking-tighter leading-none mb-2 italic">MASTER INVOICE</h3>
-                    <p class="text-[9px] font-black text-white bg-black px-3 py-1 inline-block rounded tracking-[0.2em] uppercase">SYSTEM NODE: <span id="system-node">####</span></p>
+                    <p class="text-[9px] font-black text-white bg-black px-3 py-1 inline-block rounded tracking-[0.2em] uppercase">SYSTEM NODE: <span id="system-node">LOCAL</span></p>
                 </div>
                 <div class="text-left sm:text-right relative z-10 w-full sm:w-auto">
                     <label class="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Target Account Identifier</label>
@@ -247,7 +247,7 @@
                         <p class="text-[9px] md:text-[10px] font-black uppercase text-[#107c41] tracking-[0.3em]">Protocol Verified</p>
                     </div>
                     <p class="text-[7px] md:text-[8px] opacity-40 font-bold max-w-[200px] leading-relaxed uppercase">
-                        Asset transfer manifest secured via end-to-end cloud encryption. Verified at node <span id="node-verify">NULL</span>.
+                        Asset transfer manifest secured via end-to-end cloud encryption. Verified at node <span id="node-verify">LCL</span>.
                     </p>
                 </div>
                 <div class="w-full md:w-72 space-y-3 bg-white/5 p-5 md:p-6 rounded-xl border border-white/10 shadow-xl">
@@ -281,12 +281,30 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
         import { getFirestore, collection, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
-        // --- FIREBASE CONFIGURATION ---
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        // --- ENVIRONMENT DETECTION ---
+        // Safely check if we are in the cloud environment with injected credentials
+        const hasFirebaseEnv = typeof __firebase_config !== 'undefined';
+        let app, auth, db;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'cyber-invoice-pro';
+        
+        let isFirebaseActive = false;
+
+        if (hasFirebaseEnv) {
+            try {
+                const firebaseConfig = JSON.parse(__firebase_config);
+                // Ensure the object isn't empty before initializing
+                if(Object.keys(firebaseConfig).length > 0) {
+                    app = initializeApp(firebaseConfig);
+                    auth = getAuth(app);
+                    db = getFirestore(app);
+                    isFirebaseActive = true;
+                }
+            } catch (err) {
+                console.warn("Firebase Init failed, defaulting to local storage", err);
+            }
+        } else {
+            console.info("Running locally outside cloud environment. Defaulting to local storage.");
+        }
 
         // --- CONSTANTS ---
         const IPHONE_MODELS = [
@@ -371,45 +389,62 @@
         els.invoiceDate.textContent = today.toUpperCase();
         lucide.createIcons();
 
-        // --- AUTHENTICATION ---
-        const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
+        // --- AUTHENTICATION & DATA SYNC ---
+        const initSystem = async () => {
+            if (isFirebaseActive && auth) {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (err) {
+                    console.error("Auth initialization failed", err);
+                    setupLocalStorageFallback();
                 }
-            } catch (err) {
-                console.error("Auth initialization failed", err);
+
+                let unsubscribeSnapshot = null;
+                onAuthStateChanged(auth, (u) => {
+                    state.user = u;
+                    if (u) {
+                        const shortUid = u.uid.slice(0, 8).toUpperCase();
+                        els.systemNode.textContent = shortUid;
+                        els.nodeVerify.textContent = u.uid.slice(0, 4).toUpperCase();
+                        
+                        if (unsubscribeSnapshot) unsubscribeSnapshot();
+                        
+                        const historyCol = collection(db, 'artifacts', appId, 'users', u.uid, 'invoices');
+                        unsubscribeSnapshot = onSnapshot(historyCol, (snapshot) => {
+                            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                            state.savedInvoices = data;
+                            renderHistory();
+                        }, (err) => console.error("Firestore error:", err));
+                    }
+                });
+            } else {
+                setupLocalStorageFallback();
             }
         };
 
-        let unsubscribeSnapshot = null;
-
-        onAuthStateChanged(auth, (u) => {
-            state.user = u;
-            if (u) {
-                const shortUid = u.uid.slice(0, 8).toUpperCase();
-                els.systemNode.textContent = shortUid;
-                els.nodeVerify.textContent = u.uid.slice(0, 4).toUpperCase();
-                
-                // Cleanup previous listener
-                if (unsubscribeSnapshot) unsubscribeSnapshot();
-                
-                // Listen to Firestore
-                const historyCol = collection(db, 'artifacts', appId, 'users', u.uid, 'invoices');
-                unsubscribeSnapshot = onSnapshot(historyCol, (snapshot) => {
-                    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    state.savedInvoices = data;
-                    renderHistory();
-                }, (err) => console.error("Firestore error:", err));
+        function setupLocalStorageFallback() {
+            // Act as a local user
+            state.user = { uid: 'local_web_user_' + Math.random().toString(36).substring(2, 9) };
+            els.systemNode.textContent = 'WEB-LCL';
+            els.nodeVerify.textContent = 'LCL';
+            
+            // Load history from browser storage
+            try {
+                const localData = JSON.parse(localStorage.getItem('cyber_pro_invoices') || '[]');
+                state.savedInvoices = localData;
+                renderHistory();
+            } catch(e) {
+                console.warn("Could not read from local storage", e);
             }
-        });
+        }
 
-        initAuth();
+        initSystem();
 
         // --- RENDER FUNCTIONS ---
-
         function updateTotals() {
             let sub = 0;
             state.rows.forEach(row => sub += row.price * (state.quantities[row.id] || 0));
@@ -528,7 +563,7 @@
             els.mobileSaveBtn.textContent = isSaving ? 'SYNCING...' : 'SAVE & DOWNLOAD PDF';
 
             if (isSaving) {
-                // Remove standard icons, add loaders (requires re-init of lucide or manual swap)
+                // Remove standard icons, add loaders
                 els.headerSaveBtn.classList.remove('bg-[#107c41]', 'hover:bg-[#159a52]', 'bg-green-600');
                 els.headerSaveBtn.classList.add('bg-[#107c41]'); 
             } else if (isSuccess) {
@@ -704,7 +739,7 @@
             if (!item) return;
             
             const invId = item.dataset.id;
-            const inv = state.savedInvoices.find(i => i.id === invId);
+            const inv = state.savedInvoices.find(i => i.id === invId || i.invoiceId === invId);
             
             if (inv) {
                 state.rows = inv.rows;
@@ -741,17 +776,29 @@
             
             try {
                 const invoiceId = `INV-${Date.now()}`;
-                const docRef = doc(db, 'artifacts', appId, 'users', state.user.uid, 'invoices', invoiceId);
                 
-                await setDoc(docRef, {
+                const invoiceData = {
                     invoiceId,
+                    id: invoiceId,
                     customerName: state.customerName || 'SECURE_CLIENT',
                     rows: state.rows,
                     quantities: state.quantities,
                     total,
                     timestamp: Date.now(),
                     dateLabel: today
-                });
+                };
+
+                // Use Firebase if available, otherwise fallback to local browser storage
+                if (isFirebaseActive && db) {
+                    const docRef = doc(db, 'artifacts', appId, 'users', state.user.uid, 'invoices', invoiceId);
+                    await setDoc(docRef, invoiceData);
+                } else {
+                    let localData = JSON.parse(localStorage.getItem('cyber_pro_invoices') || '[]');
+                    localData.push(invoiceData);
+                    localStorage.setItem('cyber_pro_invoices', JSON.stringify(localData));
+                    state.savedInvoices = localData;
+                    renderHistory();
+                }
                 
                 setSaveUIState('success');
 
