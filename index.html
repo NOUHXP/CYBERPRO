@@ -13,7 +13,798 @@
 
     <!-- HTML2PDF for direct PDF saving to PC -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Invoice Pro</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
+    <!-- HTML2PDF for direct PDF saving to PC -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        
+        .bg-grid-animate {
+            background-size: 50px 50px;
+            background-image: 
+                linear-gradient(to right, rgba(16, 124, 65, 0.4) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(16, 124, 65, 0.4) 1px, transparent 1px);
+            animation: grid-move 10s linear infinite;
+        }
+
+        @keyframes grid-move { from { transform: translateY(0); } to { transform: translateY(50px); } }
+        
+        .scrollbar-thin::-webkit-scrollbar { width: 5px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #107c41; border-radius: 10px; }
+        
+        .animate-dropdown { animation: slideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Hide elements by default if they rely on JS to show */
+        .hidden-safely { display: none; }
+
+        .print-mode-active {
+            box-shadow: none !important;
+            border: none !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+        }
+
+        @media print {
+            @page { margin: 0; size: auto; }
+            body { background: white !important; color: black !important; }
+            .print\:hidden { display: none !important; }
+            .min-h-screen { background: white !important; height: auto !important; padding: 0 !important; overflow: visible !important; display: block !important; }
+            header, form, .bg-grid-animate, .fixed { display: none !important; }
+            main { padding: 0 !important; display: block !important; margin: 0 !important; background: white !important; }
+            #invoice-capture { box-shadow: none !important; border: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; border-radius: 0 !important; }
+            .bg-black { background-color: #000 !important; -webkit-print-color-adjust: exact; color-adjust: exact; }
+            .bg-slate-50 { background-color: #f8fafc !important; -webkit-print-color-adjust: exact; color-adjust: exact; }
+            .text-white { color: white !important; }
+            .text-\[\#107c41\] { color: #107c41 !important; -webkit-print-color-adjust: exact; color-adjust: exact; }
+            .bg-\[\#107c41\] { background-color: #107c41 !important; -webkit-print-color-adjust: exact; color-adjust: exact; }
+            table { width: 100% !important; table-layout: auto !important; }
+            input { border: none !important; }
+        }
+    </style>
+</head>
+<body class="min-h-screen relative flex flex-col font-sans text-slate-200 overflow-x-hidden bg-[#020202]">
+
+    <!-- SUCCESS / ERROR TOAST -->
+    <div id="toast-container" class="fixed top-20 left-1/2 -translate-x-1/2 z-[1000] animate-bounce hidden-safely">
+        <!-- Toast content injected by JS -->
+    </div>
+
+    <!-- BACKGROUND EFFECTS -->
+    <canvas id="matrixCanvas" class="fixed inset-0 z-[1] pointer-events-none opacity-30 print:hidden"></canvas>
+    <div class="fixed inset-0 z-0 pointer-events-none print:hidden">
+        <div class="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_50%,rgba(16,124,65,0.03)_50%)] bg-[length:100%_4px] z-[1]"></div>
+        <div class="absolute inset-[-100%] z-0 origin-center rotate-x-[55deg] perspective-[1000px]">
+            <div class="absolute inset-0 bg-grid-animate opacity-20"></div>
+        </div>
+        <div class="absolute top-1/4 left-1/4 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-[#107c41]/10 rounded-full blur-[80px] md:blur-[120px] animate-pulse"></div>
+        <div class="absolute bottom-1/4 right-1/4 w-[250px] md:w-[400px] h-[250px] md:h-[400px] bg-[#107c41]/5 rounded-full blur-[70px] md:blur-[100px] animate-pulse delay-1000"></div>
+    </div>
+
+    <!-- Responsive Header -->
+    <header class="relative z-[150] bg-black/70 backdrop-blur-2xl border-b border-[#107c41]/20 text-white flex items-center justify-between px-4 md:px-6 py-4 print:hidden shadow-2xl">
+        <div class="flex items-center space-x-3 md:space-x-4">
+            <div class="bg-[#107c41] p-1.5 md:p-2 rounded-lg md:rounded-xl shadow-[0_0_15px_rgba(16,124,65,0.5)] ring-1 ring-white/20">
+                <i data-lucide="cpu" class="w-4 h-4 md:w-5 md:h-5 text-white animate-pulse"></i>
+            </div>
+            <div>
+                <h1 class="font-black text-sm md:text-lg italic leading-none tracking-tighter">CYBER<span class="text-[#107c41] drop-shadow-[0_0_8px_rgba(16,124,65,0.8)]">PRO</span></h1>
+                <p class="text-[7px] md:text-[8px] text-[#107c41] font-bold uppercase tracking-[0.2em] md:tracking-[0.4em]">v2.6 WEB-DEPLOYED</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center space-x-2 md:space-x-4">
+            <button id="header-save-btn" class="hidden sm:flex items-center px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all scale-105 active:scale-95 bg-[#107c41] hover:bg-[#159a52] shadow-[0_0_20px_rgba(16,124,65,0.4)] hover:shadow-[#107c41]/60 text-white border border-white/10 group">
+                <i data-lucide="download" id="header-save-icon" class="w-3.5 h-3.5 mr-2 group-hover:animate-bounce"></i>
+                <span id="header-save-text">SAVE & PDF</span>
+            </button>
+
+            <button id="mobile-menu-btn" class="lg:hidden p-2 bg-white/5 border border-white/10 rounded-lg text-[#107c41] relative">
+                <i data-lucide="menu" class="w-5 h-5"></i>
+                <div id="mobile-notification" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#107c41] rounded-full border border-black animate-ping hidden-safely"></div>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <div class="relative z-[140] px-4 md:px-5 pt-4 md:pt-6 print:hidden flex flex-col lg:flex-row gap-4 md:gap-6 max-w-7xl mx-auto w-full">
+        
+        <!-- Input Terminal -->
+        <div class="flex-1 min-w-0">
+            <div class="bg-white/5 backdrop-blur-3xl p-4 md:p-6 rounded-2xl border border-white/10 shadow-2xl">
+                <div class="flex items-center gap-2 mb-4">
+                    <i data-lucide="shield-check" class="w-4 h-4 text-[#107c41]"></i>
+                    <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Transaction Injection Terminal</h2>
+                </div>
+                
+                <form id="add-row-form" class="flex flex-col sm:flex-row sm:items-end gap-3 md:gap-4">
+                    <div class="flex flex-col flex-1 relative" id="dropdown-container">
+                        <label class="text-[8px] md:text-[9px] font-black text-[#107c41] uppercase mb-1.5 ml-1 tracking-widest flex items-center">
+                            <i data-lucide="smartphone" class="w-3 h-3 mr-1.5"></i> Hardware Model
+                        </label>
+                        <div class="relative group">
+                            <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 w-3.5 h-3.5 z-10"></i>
+                            <input 
+                                type="text" 
+                                id="phone-name"
+                                class="w-full bg-black/80 border border-[#107c41]/30 rounded-xl pl-10 pr-10 py-2.5 md:py-3 outline-none focus:ring-2 ring-[#107c41]/50 text-white text-sm placeholder:text-slate-700 transition-all shadow-inner relative z-0"
+                                placeholder="Search model..."
+                                autocomplete="off"
+                            />
+                            <button type="button" id="dropdown-toggle" class="absolute right-3 top-1/2 -translate-y-1/2 text-[#107c41] z-10">
+                                <i data-lucide="chevron-down" id="dropdown-icon" class="w-4 h-4 transition-transform"></i>
+                            </button>
+                            
+                            <!-- Dropdown Menu -->
+                            <div id="dropdown-menu" class="hidden-safely absolute top-[calc(100%+8px)] left-0 right-0 bg-[#080808] border border-[#107c41]/40 rounded-xl shadow-2xl max-h-60 overflow-y-auto z-[999] scrollbar-thin animate-dropdown ring-1 ring-[#107c41]/20">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <div class="flex flex-col flex-1 sm:w-32">
+                            <label class="text-[8px] md:text-[9px] font-black text-slate-500 uppercase mb-1.5 ml-1 tracking-widest flex items-center">
+                                <i data-lucide="dollar-sign" class="w-3 h-3 mr-1"></i> Price
+                            </label>
+                            <input type="number" id="price-input" class="w-full bg-black/80 border border-white/10 rounded-xl px-4 py-2.5 md:py-3 outline-none focus:ring-2 ring-[#107c41]/50 text-white text-sm" placeholder="0.00" step="any" min="0"/>
+                        </div>
+
+                        <div class="flex flex-col w-28 sm:w-32">
+                            <label class="text-[8px] md:text-[9px] font-black text-slate-500 uppercase mb-1.5 ml-1 tracking-widest flex items-center">
+                                <i data-lucide="package" class="w-3 h-3 mr-1.5"></i> Units
+                            </label>
+                            <div class="flex items-center bg-black/80 border border-white/10 rounded-xl h-[42px] md:h-[48px] overflow-hidden">
+                                <button type="button" id="qty-minus" class="w-8 md:w-10 h-full hover:bg-[#107c41]/20 text-[#107c41] flex items-center justify-center">
+                                    <i data-lucide="minus" class="w-3.5 h-3.5"></i>
+                                </button>
+                                <input type="number" id="qty-input" value="1" class="flex-1 bg-transparent text-center text-sm font-black text-white outline-none w-8" min="1"/>
+                                <button type="button" id="qty-plus" class="w-8 md:w-10 h-full hover:bg-[#107c41]/20 text-[#107c41] flex items-center justify-center">
+                                    <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="bg-[#107c41] hover:bg-[#159a52] text-white h-[42px] md:h-[48px] px-6 md:px-8 rounded-xl font-black transition-all flex items-center justify-center shadow-lg uppercase text-[9px] md:text-[10px] tracking-widest active:scale-95 group mt-2 sm:mt-0">
+                        Deploy <i data-lucide="arrow-down-right" class="w-3.5 h-3.5 ml-2"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Data Logs / Archive -->
+        <div id="sidebar" class="fixed lg:relative inset-y-0 right-0 w-72 lg:w-80 bg-[#080808] lg:bg-white/5 backdrop-blur-3xl border-l lg:border border-white/10 p-4 flex flex-col z-[200] lg:z-[50] shadow-2xl transition-transform duration-300 translate-x-full lg:translate-x-0 lg:rounded-2xl">
+            <div class="flex items-center justify-between mb-4 lg:mb-3">
+                <h4 class="text-[9px] font-black text-[#107c41] uppercase tracking-[0.2em] flex items-center">
+                    <i data-lucide="history" class="w-3 h-3 mr-2"></i> Data Logs History
+                </h4>
+                <button id="close-sidebar-btn" class="lg:hidden text-slate-500"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            
+            <div id="history-list" class="flex-1 overflow-y-auto space-y-2 scrollbar-thin pr-1 pb-20 lg:pb-0">
+                <!-- Populated by JS -->
+                <div class="flex flex-col items-center justify-center h-40 opacity-30">
+                    <i data-lucide="cloud-upload" class="w-8 h-8 mb-2"></i>
+                    <p class="text-[9px] text-center text-slate-400 uppercase font-black tracking-widest">Awaiting Sync</p>
+                </div>
+            </div>
+            
+            <!-- Mobile save actions -->
+            <div class="lg:hidden mt-auto pt-4 space-y-2 border-t border-white/10">
+                <button id="mobile-save-btn" class="w-full bg-[#107c41] text-white py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg active:bg-green-700">SAVE & DOWNLOAD PDF</button>
+                <button id="mobile-print-btn" class="w-full bg-white/5 text-white py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest border border-white/10 flex items-center justify-center gap-2">
+                    <i data-lucide="file-text" class="w-3.5 h-3.5"></i> PRINT PREVIEW
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN PREVIEW DOCUMENT -->
+    <main class="relative z-10 flex-1 p-4 md:p-6 print:p-0 overflow-auto flex flex-col items-center">
+        <div id="invoice-capture" class="bg-white w-full max-w-5xl shadow-[0_30px_80px_rgba(0,0,0,0.8)] rounded-xl print:shadow-none print:max-w-none flex flex-col mb-12 overflow-hidden text-slate-900 border border-white/5">
+            
+            <div class="p-6 md:p-10 border-b-[6px] md:border-b-[8px] border-black flex flex-col sm:flex-row justify-between items-start gap-6 bg-slate-50 relative">
+                <div class="relative z-10">
+                    <h3 class="text-3xl md:text-5xl font-black text-black tracking-tighter leading-none mb-2 italic">MASTER INVOICE</h3>
+                    <p class="text-[9px] font-black text-white bg-black px-3 py-1 inline-block rounded tracking-[0.2em] uppercase">SYSTEM NODE: <span id="system-node">LOCAL</span></p>
+                </div>
+                <div class="text-left sm:text-right relative z-10 w-full sm:w-auto">
+                    <label class="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Target Account Identifier</label>
+                    <input type="text" id="customer-name" placeholder="ENTER CLIENT_ID" class="text-left sm:text-right border-b-2 border-slate-200 outline-none p-1 font-black text-sm w-full sm:w-64 focus:border-[#107c41] bg-transparent uppercase transition-all print:border-none"/>
+                    <p class="text-[10px] md:text-[11px] text-slate-500 font-bold mt-3 font-mono" id="invoice-date"></p>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-x-auto">
+                <table class="w-full min-w-[600px] md:min-w-0">
+                    <thead class="bg-black text-white text-[9px] md:text-[10px] uppercase tracking-[0.3em] md:tracking-[0.4em]">
+                        <tr>
+                            <th class="py-4 px-6 md:px-10 text-left font-black">Core Description</th>
+                            <th class="py-4 px-6 md:px-10 text-right font-black">Unit Cost</th>
+                            <th class="py-4 px-6 md:px-10 text-center font-black">Qty</th>
+                            <th class="py-4 px-6 md:px-10 text-right font-black">Total</th>
+                            <th class="w-10 print:hidden"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="divide-y divide-slate-100">
+                        <!-- Populated by JS -->
+                        <tr>
+                            <td colspan="5" class="py-16 md:py-24 text-center">
+                                <i data-lucide="smartphone" class="w-10 h-10 md:w-12 md:h-12 text-slate-100 mx-auto mb-4 block"></i>
+                                <p class="text-slate-300 font-black text-[9px] md:text-xs uppercase tracking-[0.4em]">Terminal Sync Awaiting Injection</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="p-6 md:p-10 bg-black text-white flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
+                <div class="space-y-3">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 md:w-10 h-1 bg-[#107c41]"></div>
+                        <p class="text-[9px] md:text-[10px] font-black uppercase text-[#107c41] tracking-[0.3em]">Protocol Verified</p>
+                    </div>
+                    <p class="text-[7px] md:text-[8px] opacity-40 font-bold max-w-[200px] leading-relaxed uppercase">
+                        Asset transfer manifest secured via end-to-end cloud encryption. Verified at node <span id="node-verify">LCL</span>.
+                    </p>
+                </div>
+                <div class="w-full md:w-72 space-y-3 bg-white/5 p-5 md:p-6 rounded-xl border border-white/10 shadow-xl">
+                    <div class="flex justify-between text-[10px] md:text-[11px] font-black opacity-50 uppercase tracking-widest"><span>Net Assets</span><span id="subtotal-val">$0</span></div>
+                    <div class="flex justify-between text-[10px] md:text-[11px] font-black opacity-50 uppercase tracking-widest"><span>Logistics Fee (5%)</span><span id="tax-val">$0</span></div>
+                    <div class="h-px bg-[#107c41]/30 my-2"></div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] md:text-[11px] font-black uppercase text-[#107c41] tracking-widest">TOTAL VALUE</span>
+                        <span class="font-mono font-black text-2xl md:text-4xl text-white tracking-tighter" id="total-val">$0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-4 mb-16 print:hidden">
+            <button id="footer-save-btn" class="px-10 md:px-16 py-3 md:py-4 rounded-xl bg-white text-black font-black text-[10px] md:text-[11px] hover:bg-slate-200 transition-all uppercase tracking-[0.3em] shadow-xl flex items-center active:scale-95 group">
+                <i data-lucide="download" id="footer-save-icon" class="w-4 h-4 md:w-5 md:h-5 mr-3"></i>
+                <span id="footer-save-text">Save & PDF</span>
+            </button>
+
+            <button id="footer-print-btn" class="px-10 md:px-16 py-3 md:py-4 rounded-xl bg-[#107c41] text-white font-black text-[10px] md:text-[11px] hover:bg-[#159a52] transition-all uppercase tracking-[0.3em] shadow-[0_15px_30px_rgba(16,124,65,0.4)] flex items-center active:scale-95 group">
+                <i data-lucide="printer" class="w-4 h-4 md:w-5 md:h-5 mr-3"></i> Print Preview
+            </button>
+        </div>
+    </main>
+
+    <!-- UI Logic & Fallback Systems (GUARANTEED TO RUN) -->
+    <script type="module">
+        // --------------------------------------------------------------------------
+        // 1. CORE UI LOGIC (Always executes flawlessly even if offline/local)
+        // --------------------------------------------------------------------------
+
+        const IPHONE_MODELS = [
+            "iPhone 16 Pro Max", "iPhone 16 Pro", "iPhone 16 Plus", "iPhone 16",
+            "iPhone 15 Pro Max", "iPhone 15 Pro", "iPhone 15 Plus", "iPhone 15",
+            "iPhone 14 Pro Max", "iPhone 14 Pro", "iPhone 14 Plus", "iPhone 14",
+            "iPhone 13 Pro Max", "iPhone 13 Pro", "iPhone 13", "iPhone 13 mini",
+            "iPhone 12 Pro Max", "iPhone 12 Pro", "iPhone 12", "iPhone 12 mini",
+            "iPhone 11 Pro Max", "iPhone 11 Pro", "iPhone 11",
+            "iPhone SE (3rd gen)", "iPhone SE (2nd gen)"
+        ];
+
+        let state = {
+            user: null, rows: [], quantities: {}, customerName: '', savedInvoices: [],
+            showDropdown: false, saveStatus: 'idle', mobileMenuOpen: false
+        };
+
+        const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        const els = {
+            invoiceDate: document.getElementById('invoice-date'),
+            systemNode: document.getElementById('system-node'),
+            nodeVerify: document.getElementById('node-verify'),
+            phoneName: document.getElementById('phone-name'),
+            price: document.getElementById('price-input'),
+            qty: document.getElementById('qty-input'),
+            qtyMinus: document.getElementById('qty-minus'),
+            qtyPlus: document.getElementById('qty-plus'),
+            form: document.getElementById('add-row-form'),
+            dropdownContainer: document.getElementById('dropdown-container'),
+            dropdownToggle: document.getElementById('dropdown-toggle'),
+            dropdownMenu: document.getElementById('dropdown-menu'),
+            dropdownIcon: document.getElementById('dropdown-icon'),
+            tableBody: document.getElementById('table-body'),
+            subtotalVal: document.getElementById('subtotal-val'),
+            taxVal: document.getElementById('tax-val'),
+            totalVal: document.getElementById('total-val'),
+            customerName: document.getElementById('customer-name'),
+            headerSaveBtn: document.getElementById('header-save-btn'),
+            headerSaveText: document.getElementById('header-save-text'),
+            footerSaveBtn: document.getElementById('footer-save-btn'),
+            footerSaveText: document.getElementById('footer-save-text'),
+            mobileSaveBtn: document.getElementById('mobile-save-btn'),
+            footerPrintBtn: document.getElementById('footer-print-btn'),
+            mobilePrintBtn: document.getElementById('mobile-print-btn'),
+            sidebar: document.getElementById('sidebar'),
+            mobileMenuBtn: document.getElementById('mobile-menu-btn'),
+            closeSidebarBtn: document.getElementById('close-sidebar-btn'),
+            historyList: document.getElementById('history-list'),
+            toastContainer: document.getElementById('toast-container'),
+            mobileNotification: document.getElementById('mobile-notification')
+        };
+
+        els.invoiceDate.textContent = today.toUpperCase();
+        if (window.lucide) lucide.createIcons();
+
+        // --------------------------------------------------------------------------
+        // 2. HELPER FUNCTIONS
+        // --------------------------------------------------------------------------
+
+        function safeGetLocal() {
+            try { return JSON.parse(localStorage.getItem('cyber_pro_invoices') || '[]'); }
+            catch(e) { return []; }
+        }
+
+        function safeSetLocal(data) {
+            try { localStorage.setItem('cyber_pro_invoices', JSON.stringify(data)); }
+            catch(e) { console.warn('LocalStorage is blocked.'); }
+        }
+
+        function showToast(message, isError = false) {
+            els.toastContainer.innerHTML = `
+                <div class="${isError ? 'bg-red-600 shadow-[0_0_20px_rgba(220,38,38,0.6)]' : 'bg-[#107c41] shadow-[0_0_20px_rgba(16,124,65,0.6)]'} text-white px-6 py-2 rounded-full flex items-center gap-2 border border-white/20">
+                    <i data-lucide="${isError ? 'alert-circle' : 'check-circle-2'}" class="w-4 h-4"></i>
+                    <span class="text-[10px] font-black uppercase tracking-widest">${message}</span>
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
+            els.toastContainer.classList.remove('hidden-safely');
+            setTimeout(() => els.toastContainer.classList.add('hidden-safely'), 3000);
+        }
+
+        function updateTotals() {
+            let sub = 0;
+            state.rows.forEach(row => sub += row.price * (state.quantities[row.id] || 0));
+            const calculatedTax = sub * 0.05;
+            const total = sub + calculatedTax;
+
+            els.subtotalVal.textContent = `$${sub.toLocaleString(undefined, {minimumFractionDigits: 0})}`;
+            els.taxVal.textContent = `$${calculatedTax.toLocaleString(undefined, {minimumFractionDigits: 0})}`;
+            els.totalVal.textContent = `$${total.toLocaleString(undefined, {minimumFractionDigits: 0})}`;
+
+            return { subtotal: sub, tax: calculatedTax, total };
+        }
+
+        function renderTable() {
+            if (state.rows.length === 0) {
+                els.tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="py-16 md:py-24 text-center">
+                            <i data-lucide="smartphone" class="w-10 h-10 md:w-12 md:h-12 text-slate-100 mx-auto mb-4 block"></i>
+                            <p class="text-slate-300 font-black text-[9px] md:text-xs uppercase tracking-[0.4em]">Terminal Sync Awaiting Injection</p>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                els.tableBody.innerHTML = state.rows.map(row => {
+                    const q = state.quantities[row.id] || 0;
+                    const lineTotal = row.price * q;
+                    return `
+                        <tr class="hover:bg-slate-50/80 transition-colors group/row" data-id="${row.id}">
+                            <td class="py-4 md:py-5 px-6 md:px-10 font-black text-xs md:text-sm tracking-tight text-black">${row.name}</td>
+                            <td class="py-4 md:py-5 px-6 md:px-10 text-right font-mono text-slate-500 text-xs md:text-sm font-bold">$${row.price.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                            <td class="py-4 md:py-5 px-6 md:px-10 text-center">
+                                <div class="flex items-center justify-center space-x-2 md:space-x-4 print:hidden">
+                                    <button type="button" class="action-minus w-5 h-5 md:w-6 md:h-6 border-2 border-slate-200 rounded-md flex items-center justify-center hover:bg-black hover:text-white transition-all">
+                                        <i data-lucide="minus" class="w-2.5 h-2.5 pointer-events-none"></i>
+                                    </button>
+                                    <span class="font-black text-xs md:text-sm w-4">${q}</span>
+                                    <button type="button" class="action-plus w-5 h-5 md:w-6 md:h-6 border-2 border-slate-200 rounded-md flex items-center justify-center hover:bg-black hover:text-white transition-all">
+                                        <i data-lucide="plus" class="w-2.5 h-2.5 pointer-events-none"></i>
+                                    </button>
+                                </div>
+                                <span class="hidden print:block font-black text-sm">${q}</span>
+                            </td>
+                            <td class="py-4 md:py-5 px-6 md:px-10 text-right font-mono font-black text-sm md:text-base text-black">$${lineTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                            <td class="py-4 px-2 print:hidden text-center">
+                                <button type="button" class="action-delete text-slate-300 hover:text-red-500 opacity-0 group-hover/row:opacity-100 transition-all">
+                                    <i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+            if (window.lucide) lucide.createIcons();
+            updateTotals();
+        }
+
+        function renderDropdown() {
+            const term = (els.phoneName.value || '').toLowerCase();
+            const filtered = IPHONE_MODELS.filter(m => m.toLowerCase().includes(term));
+            
+            if (filtered.length > 0) {
+                els.dropdownMenu.innerHTML = filtered.map((model, idx) => `
+                    <div class="dropdown-item px-4 py-3 hover:bg-[#107c41]/20 cursor-pointer text-xs transition-all flex items-center justify-between group ${idx !== filtered.length - 1 ? 'border-b border-white/5' : ''}" data-model="${model}">
+                        <span class="font-bold text-slate-400 group-hover:text-[#107c41] transition-all pointer-events-none">${model}</span>
+                        <i data-lucide="plus" class="w-3 h-3 opacity-0 group-hover:opacity-100 text-[#107c41] pointer-events-none"></i>
+                    </div>
+                `).join('');
+            } else {
+                els.dropdownMenu.innerHTML = `<div class="p-8 text-center text-slate-600 text-[10px] uppercase font-black">No Units Found</div>`;
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function renderHistory() {
+            if (state.savedInvoices.length > 0) {
+                els.mobileNotification.classList.remove('hidden-safely');
+                const sorted = [...state.savedInvoices].sort((a,b) => b.timestamp - a.timestamp);
+                els.historyList.innerHTML = sorted.map(inv => `
+                    <button type="button" class="history-item w-full text-left p-3 rounded-lg bg-black/60 border border-white/5 hover:border-[#107c41]/40 transition-all flex justify-between items-center group shadow-md border-l-2 border-l-[#107c41]" data-id="${inv.id || inv.invoiceId}">
+                        <div class="truncate pr-2 pointer-events-none">
+                            <p class="text-[10px] font-black text-white group-hover:text-[#107c41] truncate leading-tight mb-0.5 uppercase tracking-tighter">${inv.customerName}</p>
+                            <p class="text-[7px] text-slate-600 font-mono italic">${inv.dateLabel}</p>
+                        </div>
+                        <span class="text-[10px] font-mono text-[#107c41] font-black pointer-events-none">$${inv.total.toFixed(0)}</span>
+                    </button>
+                `).join('');
+            } else {
+                els.mobileNotification.classList.add('hidden-safely');
+                els.historyList.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-40 opacity-30">
+                        <i data-lucide="cloud-upload" class="w-8 h-8 mb-2"></i>
+                        <p class="text-[9px] text-center text-slate-400 uppercase font-black tracking-widest">Awaiting Sync</p>
+                    </div>
+                `;
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function toggleMobileMenu() {
+            state.mobileMenuOpen = !state.mobileMenuOpen;
+            if (state.mobileMenuOpen) els.sidebar.classList.remove('translate-x-full');
+            else els.sidebar.classList.add('translate-x-full');
+        }
+
+        function triggerPDF() {
+            const originalTitle = document.title;
+            const filename = state.customerName ? `Invoice_${state.customerName.replace(/\s+/g, '_')}` : `CyberPro_Invoice_${Date.now()}`;
+            document.title = filename;
+            window.print();
+            document.title = originalTitle;
+        }
+
+        function downloadPDF() {
+            if (!window.html2pdf) {
+                showToast("PDF Module blocked by browser, redirecting to print...", true);
+                setTimeout(triggerPDF, 1500);
+                return;
+            }
+
+            const element = document.getElementById('invoice-capture');
+            const filename = state.customerName ? `CyberPro_Invoice_${state.customerName.replace(/\s+/g, '_')}.pdf` : `CyberPro_Invoice_${Date.now()}.pdf`;
+            
+            element.classList.add('print-mode-active');
+            
+            const opt = {
+                margin:       [0.5, 0.5],
+                filename:     filename,
+                image:        { type: 'jpeg', quality: 1 },
+                html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                element.classList.remove('print-mode-active');
+            });
+        }
+
+        // --------------------------------------------------------------------------
+        // 3. UI EVENT LISTENERS (Guaranteed to work everywhere)
+        // --------------------------------------------------------------------------
+
+        els.phoneName.addEventListener('focus', () => {
+            state.showDropdown = true;
+            els.dropdownMenu.classList.remove('hidden-safely');
+            els.dropdownIcon.classList.add('rotate-180');
+            renderDropdown();
+        });
+
+        els.phoneName.addEventListener('input', renderDropdown);
+
+        els.dropdownToggle.addEventListener('click', () => {
+            state.showDropdown = !state.showDropdown;
+            if(state.showDropdown) {
+                els.dropdownMenu.classList.remove('hidden-safely');
+                els.dropdownIcon.classList.add('rotate-180');
+                renderDropdown();
+            } else {
+                els.dropdownMenu.classList.add('hidden-safely');
+                els.dropdownIcon.classList.remove('rotate-180');
+            }
+        });
+
+        document.addEventListener('mousedown', (e) => {
+            if (!els.dropdownContainer.contains(e.target)) {
+                state.showDropdown = false;
+                els.dropdownMenu.classList.add('hidden-safely');
+                els.dropdownIcon.classList.remove('rotate-180');
+            }
+        });
+
+        els.dropdownMenu.addEventListener('click', (e) => {
+            const item = e.target.closest('.dropdown-item');
+            if (item) {
+                els.phoneName.value = item.dataset.model;
+                state.showDropdown = false;
+                els.dropdownMenu.classList.add('hidden-safely');
+                els.dropdownIcon.classList.remove('rotate-180');
+            }
+        });
+
+        els.qtyMinus.addEventListener('click', () => {
+            els.qty.value = Math.max(1, (parseInt(els.qty.value) || 1) - 1);
+        });
+
+        els.qtyPlus.addEventListener('click', () => {
+            els.qty.value = (parseInt(els.qty.value) || 1) + 1;
+        });
+
+        els.form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const phoneNameVal = els.phoneName.value.trim();
+            const priceVal = els.price.value;
+            const qtyVal = parseInt(els.qty.value) || 1;
+
+            if (!phoneNameVal || !priceVal) return;
+            
+            const newId = `row-${Date.now()}`;
+            state.rows.push({ id: newId, name: phoneNameVal, price: parseFloat(priceVal) || 0 });
+            state.quantities[newId] = qtyVal;
+            
+            els.phoneName.value = '';
+            els.price.value = '';
+            els.qty.value = 1;
+            
+            state.showDropdown = false;
+            els.dropdownMenu.classList.add('hidden-safely');
+            els.dropdownIcon.classList.remove('rotate-180');
+            
+            renderTable();
+        });
+
+        els.tableBody.addEventListener('click', (e) => {
+            const rowEl = e.target.closest('tr[data-id]');
+            if (!rowEl) return;
+            const id = rowEl.dataset.id;
+
+            if (e.target.closest('.action-delete')) {
+                state.rows = state.rows.filter(r => r.id !== id);
+                delete state.quantities[id];
+                renderTable();
+            } else if (e.target.closest('.action-minus')) {
+                state.quantities[id] = Math.max(1, (state.quantities[id] || 1) - 1);
+                renderTable();
+            } else if (e.target.closest('.action-plus')) {
+                state.quantities[id] = (state.quantities[id] || 0) + 1;
+                renderTable();
+            }
+        });
+
+        els.customerName.addEventListener('input', (e) => {
+            state.customerName = e.target.value;
+        });
+
+        els.historyList.addEventListener('click', (e) => {
+            const item = e.target.closest('.history-item');
+            if (!item) return;
+            
+            const invId = item.dataset.id;
+            const inv = state.savedInvoices.find(i => (i.id === invId) || (i.invoiceId === invId));
+            
+            if (inv) {
+                state.rows = inv.rows;
+                state.quantities = inv.quantities;
+                state.customerName = inv.customerName === 'SECURE_CLIENT' ? '' : inv.customerName;
+                els.customerName.value = state.customerName;
+                renderTable();
+                
+                if(window.innerWidth < 1024) toggleMobileMenu();
+            }
+        });
+
+        els.mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+        els.closeSidebarBtn.addEventListener('click', toggleMobileMenu);
+        els.footerPrintBtn.addEventListener('click', triggerPDF);
+        els.mobilePrintBtn.addEventListener('click', triggerPDF);
+
+        // --------------------------------------------------------------------------
+        // 4. FIREBASE MODULE (Wrapped in try/catch dynamically so it NEVER breaks app)
+        // --------------------------------------------------------------------------
+
+        let firebaseActive = false;
+        let dbRef = null;
+        let userUid = null;
+        let appId = 'cyber-invoice-pro';
+
+        function applySavingUI(isSaving, isSuccess) {
+            els.headerSaveBtn.disabled = isSaving;
+            els.footerSaveBtn.disabled = isSaving;
+            els.mobileSaveBtn.disabled = isSaving;
+            
+            els.headerSaveText.textContent = isSaving ? 'PROCESSING...' : isSuccess ? 'EXPORTED' : 'SAVE & PDF';
+            els.footerSaveText.textContent = isSaving ? 'Syncing...' : 'Save & PDF';
+            els.mobileSaveBtn.textContent = isSaving ? 'SYNCING...' : 'SAVE & DOWNLOAD PDF';
+
+            if (isSaving) {
+                els.headerSaveBtn.classList.remove('bg-green-600');
+                els.headerSaveBtn.classList.add('bg-[#107c41]'); 
+            } else if (isSuccess) {
+                els.headerSaveBtn.classList.remove('bg-[#107c41]', 'hover:bg-[#159a52]');
+                els.headerSaveBtn.classList.add('bg-green-600', 'shadow-[0_0_20px_rgba(22,163,74,0.4)]');
+                showToast("Saved Successfully");
+            } else {
+                els.headerSaveBtn.classList.remove('bg-green-600', 'shadow-[0_0_20px_rgba(22,163,74,0.4)]');
+                els.headerSaveBtn.classList.add('bg-[#107c41]', 'hover:bg-[#159a52]');
+            }
+        }
+
+        async function initDatabase() {
+            try {
+                if (typeof __firebase_config === 'undefined') throw new Error("No Cloud Config");
+                const configStr = __firebase_config;
+                if (!configStr) throw new Error("Empty Config");
+                
+                // We use dynamic imports so CORS issues on file:// protocol don't halt the whole script
+                const fbApp = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
+                const fbAuth = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
+                const fbStore = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
+
+                const config = JSON.parse(configStr);
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'cyber-invoice-pro';
+                
+                const app = fbApp.initializeApp(config);
+                const auth = fbAuth.getAuth(app);
+                dbRef = fbStore;
+                const db = fbStore.getFirestore(app);
+                
+                firebaseActive = true;
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await fbAuth.signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await fbAuth.signInAnonymously(auth);
+                }
+
+                fbAuth.onAuthStateChanged(auth, (u) => {
+                    if (u) {
+                        userUid = u.uid;
+                        els.systemNode.textContent = u.uid.slice(0, 8).toUpperCase();
+                        els.nodeVerify.textContent = u.uid.slice(0, 4).toUpperCase();
+                        
+                        const historyCol = fbStore.collection(db, 'artifacts', appId, 'users', u.uid, 'invoices');
+                        fbStore.onSnapshot(historyCol, (snapshot) => {
+                            state.savedInvoices = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                            renderHistory();
+                        });
+                    }
+                });
+            } catch (err) {
+                console.warn("Operating in Local Environment.");
+                els.systemNode.textContent = 'WEB-LCL';
+                els.nodeVerify.textContent = 'LCL';
+                state.savedInvoices = safeGetLocal();
+                renderHistory();
+            }
+        }
+
+        // Global save router
+        const handleSave = async () => {
+            if (state.rows.length === 0) {
+                showToast("Cannot save empty invoice", true);
+                return;
+            }
+
+            applySavingUI(true, false);
+            const { total } = updateTotals();
+            const invoiceId = `INV-${Date.now()}`;
+            
+            const invoiceData = {
+                invoiceId,
+                id: invoiceId,
+                customerName: state.customerName || 'SECURE_CLIENT',
+                rows: state.rows,
+                quantities: state.quantities,
+                total,
+                timestamp: Date.now(),
+                dateLabel: today
+            };
+
+            try {
+                if (firebaseActive && dbRef && userUid) {
+                    const dbInstance = dbRef.getFirestore();
+                    const ref = dbRef.doc(dbInstance, 'artifacts', appId, 'users', userUid, 'invoices', invoiceId);
+                    await dbRef.setDoc(ref, invoiceData);
+                } else {
+                    const localList = safeGetLocal();
+                    localList.push(invoiceData);
+                    safeSetLocal(localList);
+                    state.savedInvoices = localList;
+                    renderHistory();
+                }
+
+                applySavingUI(false, true);
+                setTimeout(() => downloadPDF(), 500);
+                setTimeout(() => applySavingUI(false, false), 3000);
+            } catch (e) {
+                console.error("Save error:", e);
+                showToast("Save Failed!", true);
+                applySavingUI(false, false);
+            }
+        };
+
+        els.headerSaveBtn.addEventListener('click', handleSave);
+        els.footerSaveBtn.addEventListener('click', handleSave);
+        els.mobileSaveBtn.addEventListener('click', handleSave);
+
+        // Fire it up
+        initDatabase();
+
+        // --------------------------------------------------------------------------
+        // 5. MATRIX BACKGROUND 
+        // --------------------------------------------------------------------------
+        const canvas = document.getElementById('matrixCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const resizeCanvas = () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        };
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        const katakana = 'アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレゲゼデベペオォコソトノホモヨョロゴゾドボポヴッン';
+        const latin = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const nums = '0123456789';
+        const alphabet = katakana + latin + nums;
+        
+        const fontSize = 14;
+        let drops = [];
+        for(let x = 0; x < canvas.width / fontSize; x++) drops[x] = 1;
+
+        const drawMatrix = () => {
+            ctx.fillStyle = 'rgba(2, 2, 2, 0.08)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#107c41'; // Cyber green
+            ctx.font = fontSize + 'px monospace';
+            
+            if (drops.length < canvas.width / fontSize) {
+                for(let x = drops.length; x < canvas.width / fontSize; x++) drops[x] = 1;
+            }
+
+            for(let i = 0; i < drops.length; i++) {
+                const text = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                if(drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+        };
+        setInterval(drawMatrix, 35);
+    </script>
+</body>
+</html>
     <style>
         body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
         
